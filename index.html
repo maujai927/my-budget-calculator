@@ -68,6 +68,31 @@ body{background:var(--bg);color:var(--ink);font-family:'Figtree',system-ui,sans-
         </div>
       </div>
 
+      <div class="card p-5 sm:p-6" aria-live="polite">
+        <div class="flex flex-col sm:flex-row items-center gap-6">
+          <div class="relative w-36 h-36 shrink-0" role="img" aria-label="Savings goal progress">
+            <svg viewBox="0 0 120 120" class="w-full h-full -rotate-90">
+              <circle cx="60" cy="60" r="52" fill="none" stroke-width="12" style="stroke:var(--left)"/>
+              <circle id="ring" cx="60" cy="60" r="52" fill="none" stroke-width="12" stroke-linecap="round"
+                stroke-dasharray="326.73" stroke-dashoffset="326.73" class="seg" style="stroke:var(--save);transition:stroke-dashoffset .6s cubic-bezier(.3,.8,.3,1),stroke .3s"/>
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <span id="g-pct" class="display text-3xl font-bold">0%</span>
+              <span class="text-xs text-[var(--mute)]">of goal</span>
+            </div>
+          </div>
+          <div class="w-full">
+            <label for="goal" class="font-semibold">Monthly savings goal</label>
+            <div class="relative mt-2">
+              <span id="gsym" class="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--mute)]">£</span>
+              <input id="goal" type="number" min="0" step="any" inputmode="decimal" placeholder="0" class="field !pl-8 display text-xl font-bold">
+            </div>
+            <p id="g-msg" class="mt-3 font-semibold">Set a goal to track it against your leftover income.</p>
+            <p id="g-sub" class="text-sm text-[var(--mute)] mt-1"></p>
+          </div>
+        </div>
+      </div>
+
       <div class="card p-5 sm:p-6">
         <div class="flex items-center justify-between mb-4">
           <h2 class="display text-xl font-bold">Expenses</h2>
@@ -157,14 +182,36 @@ function update(){
   }).join('');
   $('spent').textContent=fmt(spent);
   $('rate').textContent=inc>0?Math.round(Math.max(0,(inc-sums.needs-sums.wants)/inc*100))+'%':'0%';
+  // Savings goal tracker
+  const goal=num(S.goal);
+  $('gsym').textContent=S.cur;
+  const avail=Math.max(left,0);
+  const ratio=goal>0?avail/goal:0;
+  $('ring').style.strokeDashoffset=326.73*(1-Math.min(ratio,1));
+  $('ring').style.stroke=ratio>=1?'var(--needs)':'var(--save)';
+  $('g-pct').textContent=Math.round(ratio*100)+'%';
+  if(goal<=0){
+    $('g-msg').textContent='Set a goal to track it against your leftover income.';
+    $('g-sub').textContent='';
+  }else if(inc<=0){
+    $('g-msg').textContent='Add your income to see your progress.';
+    $('g-sub').textContent='';
+  }else if(left>=goal){
+    $('g-msg').textContent=left>goal?`Goal met, with ${fmt(left-goal)} to spare.`:'Goal met exactly.';
+    $('g-sub').textContent=`${fmt(goal)} a month adds up to ${fmt(goal*12)} a year.`;
+  }else{
+    $('g-msg').textContent=`${fmt(avail)} of ${fmt(goal)} saved this month.`;
+    $('g-sub').textContent=`You need ${fmt(goal-left)} more. Trim an expense or raise your income to close the gap.`;
+  }
   save();
 }
 
-$('income').value=S.income;$('cur').value=S.cur;
+$('income').value=S.income;$('goal').value=S.goal||'';$('cur').value=S.cur;
+$('goal').oninput=e=>{S.goal=e.target.value;update()};
 $('income').oninput=e=>{S.income=e.target.value;update()};
 $('cur').onchange=e=>{S.cur=e.target.value;update()};
 $('add').onclick=()=>{S.items.push({n:'',a:'',t:'needs'});buildRows(S.items.length-1);update();const r=$('list').lastChild;r&&r.firstChild.focus()};
-$('reset').onclick=()=>{if(confirm('Clear income and reset all expenses?')){S={income:'',cur:S.cur,items:JSON.parse(JSON.stringify(DEFAULT))};$('income').value='';buildRows();update()}};
+$('reset').onclick=()=>{if(confirm('Clear income and reset all expenses?')){S={income:'',goal:'',cur:S.cur,items:JSON.parse(JSON.stringify(DEFAULT))};$('income').value='';$('goal').value='';buildRows();update()}};
 $('theme').onclick=()=>{
   const r=document.documentElement;
   const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;
